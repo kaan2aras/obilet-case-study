@@ -11,7 +11,7 @@ The system is composed of the following microservices:
 - **backend/search_service/**: Handles all search logic, including NLP, feature extraction, and semantic/structured filtering.
 - **backend/orchestrator_service/**: Orchestrates requests between services and provides a unified API for the frontend.
 - **frontend/**: Next.js (React) web UI for users to search and view results.
-- **data/**: Contains `images.json` with image URLs and captions.
+- **backend/data/**: Contains `images.json` with image URLs and captions.
 
 ## Project Structure
 ```
@@ -21,8 +21,8 @@ Obilet_Case_Study/
     embedding_service/
     search_service/
     orchestrator_service/
+    data/
   frontend/
-  data/
   README.md
 ```
 
@@ -80,7 +80,7 @@ npm run dev
 
 ## Notes
 - All service ports are configurable; defaults are shown above.
-- The orchestrator service loads image/caption data from `data/images.json`.
+- The orchestrator service loads image/caption data from `backend/data/images.json`.
 - You need valid OpenAI API keys for captioning and embedding services.
 - For development, you can use `--reload` for hot-reloading FastAPI services.
 
