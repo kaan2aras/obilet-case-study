@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import requests
 import json
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 app = FastAPI()
 
@@ -15,7 +16,8 @@ app.add_middleware(
 )
 
 # Load images (with captions) at startup
-with open("../data/images.json", "r") as f:
+DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "images.json")
+with open(DATA_PATH, "r") as f:
     images = json.load(f)
 
 class SearchRequest(BaseModel):
