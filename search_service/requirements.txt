@@ -1,12 +1,11 @@
 fastapi
 uvicorn
-openai
+requests
 numpy
-scikit-learn
-python-dotenv
+pydantic
 spacy
-httpx
+python-dotenv
 
 # Install spaCy English model
 # After installing requirements, run:
-# python -m spacy download en_core_web_sm 
+# python -m spacy download en_core_web_sm

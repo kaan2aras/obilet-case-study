@@ -8,6 +8,19 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+interface SearchResult {
+  url: string
+  caption: string
+  similarity: number
+}
+
+interface SearchResponse {
+  results: SearchResult[]
+  total_results: number
+  query: string
+  total_images?: number
+}
+
 const BACKEND_URL = "http://localhost:8000";
 
 function generateRandomFeatures() {
@@ -56,41 +69,21 @@ const predefinedQueries = [
 
 export default function ObiletCaseStudy() {
   const [hotelImages, setHotelImages] = useState<any[]>([])
+  const [filteredImages, setFilteredImages] = useState<any[]>([])
+  const [totalImages, setTotalImages] = useState(0)
   const [selectedQuery, setSelectedQuery] = useState<number | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [filteredImages, setFilteredImages] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [activeTab, setActiveTab] = useState("predefined")
   const tabRefs = [useRef<HTMLButtonElement>(null), useRef<HTMLButtonElement>(null)]
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
 
   useEffect(() => {
-    // Fetch all images from backend when component mounts
-    const fetchAllImages = async () => {
-      setIsSearching(true);
-      try {
-        const res = await fetch(`${BACKEND_URL}/search`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: "" }),
-        });
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        const data = await res.json();
-        const allImages = data.results || [];
-        setHotelImages(allImages);
-        setFilteredImages(allImages);
-        console.log(`Loaded ${allImages.length} total images`); // Debug log
-      } catch (e) {
-        console.error("Error fetching images:", e);
-        setHotelImages([]);
-        setFilteredImages([]);
-      }
-      setIsSearching(false);
-    };
-    fetchAllImages();
-  }, []);
+    // Remove automatic fetch on component mount
+    setHotelImages([])
+    setFilteredImages([])
+    setTotalImages(0)
+  }, [])
 
   useEffect(() => {
     // Animate sliding bar under active tab
@@ -110,59 +103,65 @@ export default function ObiletCaseStudy() {
   }
 
   const handleQuerySelect = async (queryId: number) => {
-    console.log("Button clicked - Query ID:", queryId); // Debug log for click event
+    console.log("Button clicked - Query ID:", queryId)
 
     if (isSearching) {
-      console.log("Search already in progress, ignoring click"); // Debug log for search state
-      return;
+      console.log("Search already in progress, ignoring click")
+      return
     }
     
-    setSelectedQuery(queryId);
-    setIsSearching(true);
-    setActiveTab("predefined");
+    setSelectedQuery(queryId)
+    setIsSearching(true)
+    setActiveTab("predefined")
     
-    const query = predefinedQueries.find((q) => q.id === queryId);
-    console.log("Selected query:", query); // Debug log for selected query
+    const query = predefinedQueries.find((q) => q.id === queryId)
+    console.log("Selected query:", query)
 
     if (query) {
       try {
-        // Use the full query title instead of just keywords
-        const searchQuery = query.title.toLowerCase();
-        console.log("Sending search request to backend:", searchQuery); // Debug log for search query
+        const searchQuery = query.title.toLowerCase()
+        console.log("Sending search request to backend:", searchQuery)
 
         const res = await fetch(`${BACKEND_URL}/search`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: searchQuery }),
-        });
+        })
         
-        console.log("Backend response status:", res.status); // Debug log for response status
+        console.log("Backend response status:", res.status)
         
         if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
+          throw new Error(`HTTP error! status: ${res.status}`)
         }
         
-        const data = await res.json();
-        console.log("Search results:", data); // Debug log for search results
+        const data = await res.json() as SearchResponse
+        console.log("Search results:", data)
         
         if (Array.isArray(data.results)) {
-          setFilteredImages(data.results);
-          console.log(`Found ${data.results.length} matching images`); // Debug log for results count
+          const formattedResults = data.results.map(result => ({
+            url: result.url
+          }))
+          setHotelImages(formattedResults)
+          setFilteredImages(formattedResults)
+          setTotalImages(data.total_images || 0)
+          console.log(`Found ${data.total_results} matching images out of ${data.total_images} total images for query: "${data.query}"`)
         } else {
-          console.error("Invalid results format:", data); // Debug log for invalid results
-          setFilteredImages([]);
+          console.error("Invalid results format:", data)
+          setFilteredImages([])
+          setTotalImages(0)
         }
       } catch (e) {
-        console.error("Search error:", e);
-        setFilteredImages([]);
+        console.error("Search error:", e)
+        setFilteredImages([])
+        setTotalImages(0)
       }
     }
-    setIsSearching(false);
-  };
+    setIsSearching(false)
+  }
 
   const handleCustomSearch = async () => {
     if (!searchTerm.trim()) {
-      setFilteredImages(hotelImages)
+      setFilteredImages([])
       return
     }
     setIsSearching(true)
@@ -173,9 +172,17 @@ export default function ObiletCaseStudy() {
         body: JSON.stringify({ query: searchTerm }),
       })
       const data = await res.json()
-      setFilteredImages(data.results)
+      if (Array.isArray(data.results)) {
+        setHotelImages(data.results)  // Update total images
+        setFilteredImages(data.results)
+        setTotalImages(data.total_images || 0)
+      } else {
+        setFilteredImages([])
+        setTotalImages(0)
+      }
     } catch (e) {
       setFilteredImages([])
+      setTotalImages(0)
     }
     setIsSearching(false)
   }
@@ -300,7 +307,7 @@ export default function ObiletCaseStudy() {
           <div className="flex justify-between items-center mt-6">
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-900">
-                {filteredImages.length} of {hotelImages.length} rooms available
+                {filteredImages.length} of {totalImages === 0 ? 25 : totalImages} rooms available
               </span>
               {selectedQuery && (
                 <Badge variant="outline" className="text-red-600 border-red-600">
@@ -322,22 +329,21 @@ export default function ObiletCaseStudy() {
             </div>
           ) : filteredImages.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredImages.map((image) => (
-                <Card key={image.url} className="overflow-hidden hover:shadow-lg transition-shadow">
+              {filteredImages.map((image, index) => (
+                <Card key={`${index}-${image.url}`} className="overflow-hidden hover:shadow-lg transition-shadow">
                   <div className="aspect-video bg-gray-200 relative">
                     <img
-                      src={image.url || "/placeholder.svg"}
-                      alt={image.caption ? image.caption.slice(0, 30) : "Hotel Room"}
+                      src={image.url}
+                      alt="Hotel Room"
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = `/placeholder.svg?height=200&width=300&text=Room`;
+                        console.error("Image failed to load:", image.url)
                       }}
                     />
                   </div>
                   <CardContent className="p-4">
                     <h4 className="font-medium text-gray-900 mb-2">
-                      Room {image.url ? image.url.split('/').pop().split('.')[0].padStart(2, '0') : '??'}
+                      Room {image.url.split('/').pop()?.split('.')[0] || '??'}
                     </h4>
                   </CardContent>
                 </Card>
@@ -349,7 +355,7 @@ export default function ObiletCaseStudy() {
                 <Search className="w-12 h-12 mx-auto" />
               </div>
               <h4 className="text-lg font-medium text-gray-900 mb-2">No rooms found</h4>
-              <p className="text-gray-900">Try adjusting your search criteria or selecting a different query.</p>
+              <p className="text-gray-900">Select a predefined query or try a custom search to find rooms.</p>
             </div>
           )}
         </div>
@@ -379,4 +385,5 @@ export default function ObiletCaseStudy() {
     </div>
   )
 }
+
 
